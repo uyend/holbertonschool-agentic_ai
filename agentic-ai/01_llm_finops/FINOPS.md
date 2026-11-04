@@ -2,7 +2,7 @@
 
 ## Measurement
 
-The system prompt was measured with the tokenization tool for **GPT-5.x and o1/o3** (the `o200k` family used by those models).
+The system prompt's token count (58) comes from the tokenization tool, using the **GPT-5.x and o1/o3** model setting.
 
 | Piece | Tokens |
 | --- | ---: |
@@ -113,15 +113,21 @@ Ten independent calls, each forgetting the previous response, would cost `10 × 
 
 ## Self-assessment and how to stop the growth
 
-The cumulative total is the sum of an arithmetic series, not `10 ×` the first call. Iteration 10 already costs $0.10529, about 27% more than iteration 1, and the extra is only repeated input. Output spend is flat at $0.07500 for the whole loop. The growth term `500 × n(n − 1) / 2` is quadratic in the number of iterations, so the same loop at 100 iterations would resend `500 × 4,950 = 2,475,000` historical tokens and the premium alone would be $12.375.
+**Cost growth**
 
-Context truncation removes that quadratic term. Keep the stable prefix (the 58-token prompt and the 15,000-token file) and only the latest 500-token response. Iteration 1 is unchanged. Iterations 2 through 10 each send 15,558 input tokens instead of climbing to 19,558.
+- The cumulative total is an arithmetic series, not `10 ×` the first call.
+- Iteration 10 costs $0.10529, about 27% more than iteration 1. The extra is repeated input only.
+- Output stays flat at $0.07500 for the whole loop.
+- Resent history grows as `500 × n(n − 1) / 2`, which is quadratic. At 100 iterations that is 2,475,000 resent tokens, a $12.375 premium.
 
-```
-input tokens = 15,058 + 9 × 15,558 = 155,080
-cost         = (155,080 × 5 + 5,000 × 15) / 1,000,000 = 0.85040
-```
+**Context truncation** (keep the prefix and the latest response only)
 
-That is $0.09000 less than the full-history loop ($0.94040 − $0.85040), and only $0.02250 above ten stateless calls. Dropping every previous response, when the next user message already contains the error, returns the loop to `10 × 0.08279 = 0.82790`.
+- Iteration 1 is unchanged. Iterations 2–10 each send 15,558 input tokens instead of rising to 19,558.
+- Loop cost: `(155,080 × 5 + 5,000 × 15) / 1,000,000 = $0.85040`, which is $0.09000 less than the full history.
+- Still $0.02250 above ten stateless calls ($0.82790).
+- Dropping all previous responses returns the loop to $0.82790, if the next message already contains the error.
 
-Truncation bounds the history. It does not remove the 15,058-token prefix, which is identical on every call and is still the bulk of the bill (about $0.75 of the $0.94). A prompt cache on that prefix would cut the repeated input rate without changing the token counts above. The two fixes apply to different parts of the bill: truncation stops the history from growing, and caching discounts the prefix that has to be sent anyway.
+**What truncation does not fix**
+
+- The 15,058-token prefix is resent on every call and is about $0.75 of the $0.94.
+- Truncation bounds the history. Prompt caching discounts the prefix. The two address different parts of the bill.

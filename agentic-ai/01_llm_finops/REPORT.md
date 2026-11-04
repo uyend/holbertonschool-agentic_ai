@@ -31,4 +31,26 @@ Shared arbitrary choices: both models chose Python, JSON, and the local filesyst
 
 ## Self-assessment
 
-Two unsupported assumptions stand out. Haiku hallucinated `JSONDecodeError` as the failure mode of `json.dump`, so the handler that claims to catch bad data never runs. It also invented a filesystem-plus-logging architecture nobody requested, and its return-a-dictionary contract lets callers ignore failures. Opus did not hallucinate APIs, but it made unrequested architectural decisions: atomic replace semantics, a destructive `overwrite=True` default, automatic directory creation, and a custom exception hierarchy. It also missed two subtle problems: the overwrite check is a time-of-check/time-of-use race, and the temporary file's `0600` mode changes permissions on existing files. Neither model validates paths or considers who is allowed to write where. A vague prompt is dangerous in production because the model fills every gap with a confident choice about language, persistence, defaults, and trust boundaries, and the result looks finished. A polished answer with passing tests, like Opus's, makes this worse: the tests only check the behavior the model chose for itself, so a reviewer is tempted to approve it while the real requirements (concurrency, permissions, input validation, where the data actually belongs) were never stated or tested.
+**Haiku**
+
+- Invented a failure mode: `json.dump` never raises `JSONDecodeError`, so its "bad data" handler is dead code.
+- Added an unrequested filesystem-plus-logging design.
+- Its return-a-dictionary contract lets callers ignore failures.
+
+**Opus**
+
+- Did not hallucinate APIs, but made unrequested decisions: atomic replace, a destructive `overwrite=True` default, automatic directory creation, and a custom exception hierarchy.
+- Missed a time-of-check/time-of-use race in its `overwrite=False` check.
+- Missed that the `0600` temp-file mode changes permissions on existing files.
+
+**Both**
+
+- Neither validates paths, so `../../etc/...` is accepted.
+- Neither considers who may write where, or limits payload size.
+- Polished output and passing tests make unstated requirements easy to approve.
+
+**Takeaway**
+
+- A vague prompt makes the model fill gaps with confident choices about language, persistence, defaults, and trust boundaries.
+- Tests only check choices the model made for itself.
+- State concurrency, permissions, validation, and storage location up front.
